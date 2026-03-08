@@ -94,13 +94,14 @@ class BidsOrganizer {
       final firstMeta =
           jsonDecode(await metaJsonFiles.first.readAsString()) as Map<String, dynamic>;
       final patientName = firstMeta['PatientName'] as String? ?? '';
-      final patientId = extractPatientId(patientName);
+      final hospitalID = firstMeta['PatientID'] as String? ;
+      final patientId = extractPatientId(patientName) ?? hospitalID;
 
       if (patientId == null) {
         return ConversionResult(
           status: ConversionStatus.error,
           folderName: folderName,
-          message: 'PatientID not found in PatientName',
+          message: 'PatientID not found in PatientName or HospitalID',
         );
       }
 
@@ -212,8 +213,8 @@ class BidsOrganizer {
           } catch (_) {
             continue;
           }
-
-          final seriesDesc = meta['SeriesDescription'] as String? ?? '';
+          final studyDescription = meta['StudyDescription'] as String? ?? '';
+          final seriesDesc = meta['SeriesDescription'] as String? ?? studyDescription;
           var modality = matchRules(seriesDesc, rules);
 
           if (modality == null) {
@@ -242,7 +243,9 @@ class BidsOrganizer {
             final remainder = p.basename(src.path).substring(baseStem.length);
             final newName =
                 'sub-${patientId}_ses-${seriesDate}_acq-${acqLabel}_$modality$remainder';
-            await src.rename(p.join(outputDir, newName));
+            final newPath = p.join(outputDir, newName);
+            await src.copy(newPath);
+            await src.delete();
           }
 
           details.add('$seriesDesc -> $modality ($subfolder)');

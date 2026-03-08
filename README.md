@@ -3,7 +3,7 @@
 Flutter desktop app for converting DICOM folders to BIDS-style NIfTI outputs using `dcm2niix`, with optional post-conversion ZIP archiving.
 
 ## Version
-- Current app version: `1.1.0+1`
+- Current app version: `1.1.1+1`
 - Version constants used by the UI live in `lib/app_info.dart`
 - Pub version metadata lives in `pubspec.yaml`
 

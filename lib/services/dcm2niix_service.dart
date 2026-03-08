@@ -18,7 +18,7 @@ class Dcm2niixService {
     try {
       final result = await Process.run(
         binaryPath,
-        ['-b', 'o', '-z', 'n', '-f', 'check', '-o', tempDir.path, folderPath],
+        ['-b', 'o', '-z', 'n', '-d', '0', '-f', 'check', '-o', tempDir.path, folderPath],
       );
       final output = result.stdout.toString() + result.stderr.toString();
       // dcm2niix reports "Found N DICOM" or produces JSON files
@@ -111,7 +111,8 @@ class Dcm2niixService {
         try {
           final data =
               jsonDecode(await f.readAsString()) as Map<String, dynamic>;
-          final desc = data['SeriesDescription'] as String? ?? '';
+          final studyDescription = data['StudyDescription'] as String? ?? '';
+          final desc = data['SeriesDescription'] as String? ?? studyDescription;
           if (desc.isNotEmpty) {
             seriesCounts[desc] = (seriesCounts[desc] ?? 0) + 1;
           }

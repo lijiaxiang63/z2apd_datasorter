@@ -2,7 +2,7 @@ name: apd_dcm2niix
 description: "APD DICOM to NIfTI Converter"
 publish_to: 'none'
 
-version: 1.1.0+1
+version: 1.1.1+1
 
 environment:
   sdk: ^3.11.0
