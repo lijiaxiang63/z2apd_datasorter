@@ -1,11 +1,29 @@
-# APD DICOM to NIfTI Converter
+# z2apd_datasorter
+
+> **For internal use only.** This tool is not intended for public distribution.
 
 Flutter desktop app for converting DICOM folders to BIDS-style NIfTI outputs using `dcm2niix`, with optional post-conversion ZIP archiving.
 
 ## Version
-- Current app version: `1.1.1+1`
+- Current app version: `1.1.2+1`
 - Version constants used by the UI live in `lib/app_info.dart`
 - Pub version metadata lives in `pubspec.yaml`
+
+## Changelog
+
+### v1.1.2
+- Renamed app to `z2apd_datasorter`
+- Added self-update: app checks GitHub Releases on startup and can download and install updates in-place
+- Added "Check for Updates..." item in the macOS application menu
+- Added update tests for `UpdateService` and `UpdateProvider`
+
+### v1.1.1
+- Added CT modality support
+- Fallback patient ID from HospitalID field
+- StudyDescription fallback for session naming
+
+### v1.1.0
+- Initial public release
 
 ## What This App Does
 - Accepts a root folder by drag-and-drop or folder picker.

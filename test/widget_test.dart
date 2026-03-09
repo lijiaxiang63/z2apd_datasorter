@@ -2,9 +2,10 @@ import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
-import 'package:apd_dcm2niix/main.dart';
-import 'package:apd_dcm2niix/providers/rules_provider.dart';
-import 'package:apd_dcm2niix/providers/conversion_provider.dart';
+import 'package:z2apd_datasorter/main.dart';
+import 'package:z2apd_datasorter/providers/rules_provider.dart';
+import 'package:z2apd_datasorter/providers/conversion_provider.dart';
+import 'package:z2apd_datasorter/providers/update_provider.dart';
 
 void main() {
   testWidgets('App renders title', (WidgetTester tester) async {
@@ -18,12 +19,13 @@ void main() {
         providers: [
           ChangeNotifierProvider(create: (_) => RulesProvider()),
           ChangeNotifierProvider(create: (_) => ConversionProvider()),
+          ChangeNotifierProvider(create: (_) => UpdateProvider()),
         ],
-        child: const ApdDcm2niixApp(),
+        child: const Z2apdDatasorterApp(),
       ),
     );
 
-    expect(find.text('APD DICOM -> NIfTI Converter'), findsOneWidget);
-    expect(find.text('Version v1.1.1+1'), findsOneWidget);
+    expect(find.text('z2apd_datasorter'), findsOneWidget);
+    expect(find.text('Version v1.1.2+1'), findsOneWidget);
   });
 }

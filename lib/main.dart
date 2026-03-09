@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'app_info.dart';
 import 'providers/rules_provider.dart';
 import 'providers/conversion_provider.dart';
+import 'providers/update_provider.dart';
 import 'screens/home_screen.dart';
 
 void main() {
@@ -11,14 +12,16 @@ void main() {
       providers: [
         ChangeNotifierProvider(create: (_) => RulesProvider()..loadRules()),
         ChangeNotifierProvider(create: (_) => ConversionProvider()),
+        ChangeNotifierProvider(
+            create: (_) => UpdateProvider()..checkForUpdate()),
       ],
-      child: const ApdDcm2niixApp(),
+      child: const Z2apdDatasorterApp(),
     ),
   );
 }
 
-class ApdDcm2niixApp extends StatelessWidget {
-  const ApdDcm2niixApp({super.key});
+class Z2apdDatasorterApp extends StatelessWidget {
+  const Z2apdDatasorterApp({super.key});
 
   @override
   Widget build(BuildContext context) {
