@@ -1,10 +1,13 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
-import '../models/modality_rule.dart';
+import 'package:path/path.dart' as p;
 import '../models/conversion_result.dart';
+import '../models/modality_rule.dart';
 import '../services/binary_locator.dart';
 import '../services/dcm2niix_service.dart';
 import '../services/archive_service.dart';
 import '../services/bids_organizer.dart';
+import '../services/input_layout_resolver.dart';
 
 class ConversionProvider extends ChangeNotifier {
   final List<String> _logLines = [];
@@ -65,6 +68,7 @@ class ConversionProvider extends ChangeNotifier {
 
       final dcm2niixService = Dcm2niixService(dcm2niixPath);
       final bidsOrganizer = BidsOrganizer(dcm2niixService);
+      final inputLayoutResolver = InputLayoutResolver(dcm2niixService);
 
       ArchiveService? archiveService;
       if (_archiveEnabled) {
@@ -84,8 +88,11 @@ class ConversionProvider extends ChangeNotifier {
         );
       }
 
-      final folders = await dcm2niixService.collectDicomFolders(_selectedPath);
-      _total = folders.length;
+      final plan = await inputLayoutResolver.resolve(_selectedPath);
+      final conversionTargets = plan.targets;
+      final outputRoot = plan.outputRoot;
+
+      _total = conversionTargets.length;
 
       if (_total == 0) {
         addLog('No DICOM folders found.');
@@ -96,28 +103,56 @@ class ConversionProvider extends ChangeNotifier {
       _progress = 0;
       notifyListeners();
 
-      for (var i = 0; i < folders.length; i++) {
-        final folder = folders[i];
-        final folderName = folder.split('/').last;
+      final archiveStates = <String, _ArchiveState>{};
+
+      for (var i = 0; i < conversionTargets.length; i++) {
+        final target = conversionTargets[i];
+        final folderName = p.basename(target.inputDir);
         _currentFolder = 'Processing ${i + 1}/$_total: $folderName';
         notifyListeners();
 
         final result = await bidsOrganizer.convertOne(
-          inputDir: folder,
+          inputDir: target.inputDir,
+          outputRoot: outputRoot,
           rules: rules,
           onlyMatched: onlyMatched,
         );
         addLog(result.toString());
 
-        if (_archiveEnabled &&
-            archiveService != null &&
-            result.status == ConversionStatus.ok) {
-          final arcMsg = await archiveService.archiveFolder(folder);
-          addLog(arcMsg);
+        final archiveState = archiveStates.putIfAbsent(
+          target.archiveDir,
+          _ArchiveState.new,
+        );
+        if (result.status == ConversionStatus.ok) {
+          archiveState.hasSuccess = true;
+        } else if (result.status == ConversionStatus.error) {
+          archiveState.hasError = true;
         }
 
         _progress = (i + 1) / _total;
         notifyListeners();
+      }
+
+      if (_archiveEnabled &&
+          archiveService != null &&
+          archiveStates.isNotEmpty) {
+        final archiveDirs = archiveStates.keys.toList()..sort();
+        for (final archiveDir in archiveDirs) {
+          final archiveState = archiveStates[archiveDir]!;
+          if (!archiveState.hasSuccess) {
+            continue;
+          }
+          if (archiveState.hasError) {
+            addLog(
+              'SKIP ARCHIVE ${p.basename(archiveDir)}: conversion errors were found in this scan folder.',
+            );
+            continue;
+          }
+          if (await Directory(archiveDir).exists()) {
+            final arcMsg = await archiveService.archiveFolder(archiveDir);
+            addLog(arcMsg);
+          }
+        }
       }
 
       addLog('\n--- All done. ---');
@@ -130,4 +165,9 @@ class ConversionProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+}
+
+class _ArchiveState {
+  bool hasSuccess = false;
+  bool hasError = false;
 }

@@ -1,6 +1,6 @@
 const String appName = 'z2apd_datasorter';
-const String appVersion = '1.1.2';
-const String appBuild = '1';
+const String appVersion = '1.1.3';
+const String appBuild = '2';
 
 const String appVersionLabel = 'v$appVersion+$appBuild';
 

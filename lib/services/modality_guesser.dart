@@ -19,5 +19,8 @@ String guessModality(String description) {
   }
   if (d.contains('bold') || d.contains('fmri')) return 'bold';
   if (d.contains('angio') || d.contains('tof')) return 'angio';
+  if (d.contains('pet') || d.contains('fdg') || d.contains('suv')) {
+    return 'pet';
+  }
   return 'T1w';
 }

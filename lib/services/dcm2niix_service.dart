@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:path/path.dart' as p;
 
 /// Wraps dcm2niix binary execution.
 class Dcm2niixService {
@@ -12,39 +13,61 @@ class Dcm2niixService {
     final dir = Directory(folderPath);
     if (!await dir.exists()) return false;
 
-    // Quick heuristic: try to convert with BIDS-only to a temp dir.
-    // If dcm2niix finds DICOM files, it produces JSON output.
-    final tempDir = await Directory.systemTemp.createTemp('dcm_check_');
     try {
-      final result = await Process.run(
-        binaryPath,
-        ['-b', 'o', '-z', 'n', '-d', '0', '-f', 'check', '-o', tempDir.path, folderPath],
-      );
+      final result = await Process.run(binaryPath, [
+        '-q',
+        'y',
+        '-d',
+        '1',
+        folderPath,
+      ]);
       final output = result.stdout.toString() + result.stderr.toString();
-      // dcm2niix reports "Found N DICOM" or produces JSON files
-      final hasJson =
-          tempDir.listSync().any((f) => f.path.endsWith('.json'));
-      return hasJson ||
-          (output.contains('Convert') && !output.contains('Error'));
+      return output.contains(RegExp(r'Found\s+\d+\s+DICOM file'));
     } catch (_) {
       return false;
-    } finally {
-      await tempDir.delete(recursive: true);
     }
   }
 
   /// Collect DICOM sub-folders under a root directory.
-  /// If root itself is a DICOM folder, returns [rootPath].
-  /// Otherwise returns immediate sub-directories that are DICOM folders.
+  /// Prefers series-level folders over higher-level scan containers.
   Future<List<String>> collectDicomFolders(String rootPath) async {
-    if (await isDicomFolder(rootPath)) return [rootPath];
+    final normalizedRoot = p.normalize(rootPath);
+    final directDicomChildren = await collectImmediateDicomChildren(
+      normalizedRoot,
+    );
 
+    final nestedDicomFolders = <String>[];
+    for (final childDir in directDicomChildren) {
+      final nestedChildren = await collectImmediateDicomChildren(childDir);
+      if (nestedChildren.isNotEmpty) {
+        nestedDicomFolders.addAll(nestedChildren);
+      }
+    }
+
+    if (nestedDicomFolders.isNotEmpty) {
+      nestedDicomFolders.sort();
+      return nestedDicomFolders;
+    }
+
+    if (directDicomChildren.isNotEmpty) {
+      return directDicomChildren;
+    }
+
+    if (await isDicomFolder(normalizedRoot)) {
+      return [normalizedRoot];
+    }
+
+    return [];
+  }
+
+  /// Collect immediate child directories that contain DICOM files.
+  Future<List<String>> collectImmediateDicomChildren(String rootPath) async {
     final rootDir = Directory(rootPath);
     final folders = <String>[];
     await for (final entity in rootDir.list()) {
       if (entity is Directory) {
         if (await isDicomFolder(entity.path)) {
-          folders.add(entity.path);
+          folders.add(p.normalize(entity.path));
         }
       }
     }
@@ -58,16 +81,17 @@ class Dcm2niixService {
     required String outputDir,
     required String filenameFormat,
   }) async {
-    return await Process.run(
-      binaryPath,
-      [
-        '-ba', 'n',
-        '-z', 'y',
-        '-f', filenameFormat,
-        '-o', outputDir,
-        inputDir,
-      ],
-    );
+    return await Process.run(binaryPath, [
+      '-ba',
+      'n',
+      '-z',
+      'y',
+      '-f',
+      filenameFormat,
+      '-o',
+      outputDir,
+      inputDir,
+    ]);
   }
 
   /// Convert to a staging directory (rules path).
@@ -76,16 +100,17 @@ class Dcm2niixService {
     required String stagingDir,
     required String filenameFormat,
   }) async {
-    return await Process.run(
-      binaryPath,
-      [
-        '-ba', 'n',
-        '-z', 'y',
-        '-f', filenameFormat,
-        '-o', stagingDir,
-        inputDir,
-      ],
-    );
+    return await Process.run(binaryPath, [
+      '-ba',
+      'n',
+      '-z',
+      'y',
+      '-f',
+      filenameFormat,
+      '-o',
+      stagingDir,
+      inputDir,
+    ]);
   }
 
   /// Scan a DICOM folder tree and extract series metadata.
@@ -93,17 +118,19 @@ class Dcm2niixService {
   Future<Map<String, int>> scanSeries(String folderPath) async {
     final tempDir = await Directory.systemTemp.createTemp('dcm2niix_scan_');
     try {
-      await Process.run(
-        binaryPath,
-        [
-          '-b', 'o',
-          '-ba', 'n',
-          '-z', 'n',
-          '-f', '%s_%d',
-          '-o', tempDir.path,
-          folderPath,
-        ],
-      );
+      await Process.run(binaryPath, [
+        '-b',
+        'o',
+        '-ba',
+        'n',
+        '-z',
+        'n',
+        '-f',
+        '%s_%d',
+        '-o',
+        tempDir.path,
+        folderPath,
+      ]);
 
       final seriesCounts = <String, int>{};
       for (final f in tempDir.listSync()) {

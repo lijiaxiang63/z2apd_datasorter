@@ -5,11 +5,17 @@
 Flutter desktop app for converting DICOM folders to BIDS-style NIfTI outputs using `dcm2niix`, with optional post-conversion ZIP archiving.
 
 ## Version
-- Current app version: `1.1.2+1`
+- Current app version: `1.1.3+2`
 - Version constants used by the UI live in `lib/app_info.dart`
 - Pub version metadata lives in `pubspec.yaml`
 
 ## Changelog
+
+### v1.1.3
+- PET subject IDs are derived from the PET scan folder path instead of DICOM `PatientID`
+- PET conversion now respects selected series rules and skips unmatched PET-side series when `only matched` is enabled
+- PET archiving no longer gets blocked by unmatched undated series such as `PET Statistics` or `Patient Protocol`
+- Added a select-all / unselect-all checkbox to the Discovered Series dialog
 
 ### v1.1.2
 - Renamed app to `z2apd_datasorter`
@@ -31,16 +37,20 @@ Flutter desktop app for converting DICOM folders to BIDS-style NIfTI outputs usi
 - Converts each detected folder to NIfTI (`.nii.gz`) and JSON sidecars.
 - Builds BIDS-like output paths using patient/date metadata.
 - Supports rule-based mapping from SeriesDescription patterns to modalities.
+- Lets you bulk-select or clear discovered series before creating rules.
 - Optionally archives each processed source folder to `.zip` and deletes the original folder.
 
 ## Conversion Behavior
-- Patient ID is extracted from DICOM `PatientName` using `:bah:` as delimiter.
+- Non-PET patient IDs are extracted from DICOM `PatientName` using `:bah:` as delimiter, with fallback to `PatientID`.
+- PET patient IDs are extracted from the PET scan folder path (for example `52284899_... -> sub-52284899`).
 - Session is derived from `SeriesDate` (fallback: `AcquisitionDateTime`).
 - If no rules are configured, all series are converted to `anat/T1w`.
 - If rules are configured:
 - SeriesDescription is matched with case-insensitive glob patterns (`*`, `?`).
-- Matched series are mapped to modality/subfolder (`anat`, `func`, `dwi`).
+- Matched series are mapped to modality/subfolder (`anat`, `func`, `dwi`, `pet`).
 - Unmatched series are skipped when `only matched` is enabled, otherwise forced to `T1w`.
+- PET conversions follow the same selected-series filtering and skip unmatched PET-side series when `only matched` is enabled.
+- Archive mode zips the original processed source scan folder, not the generated `sub-*` output folder.
 
 ## Runtime Dependencies
 - `dcm2niix` binary:

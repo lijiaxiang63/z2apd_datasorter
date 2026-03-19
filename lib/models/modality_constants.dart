@@ -8,6 +8,7 @@ const List<String> modalityChoices = [
   'bold',
   'dwi',
   'CT',
+  'pet',
 ];
 
 const Map<String, String> modalitySubfolder = {
@@ -20,4 +21,5 @@ const Map<String, String> modalitySubfolder = {
   'bold': 'func',
   'dwi': 'dwi',
   'CT': 'anat',
+  'pet': 'pet',
 };

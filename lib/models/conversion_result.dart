@@ -5,12 +5,15 @@ class ConversionResult {
   final String folderName;
   final String message;
   final List<String> details;
+  /// The output subject directory (for example `.../sub-12345`).
+  final String? subjectDir;
 
   const ConversionResult({
     required this.status,
     required this.folderName,
     required this.message,
     this.details = const [],
+    this.subjectDir,
   });
 
   @override

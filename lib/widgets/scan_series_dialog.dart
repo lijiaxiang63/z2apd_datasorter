@@ -8,6 +8,22 @@ import '../services/binary_locator.dart';
 import '../services/dcm2niix_service.dart';
 import '../services/modality_guesser.dart';
 
+bool? bulkSelectionState(Iterable<bool> selections) {
+  final values = selections.toList();
+  if (values.isEmpty) {
+    return false;
+  }
+
+  final selectedCount = values.where((selected) => selected).length;
+  if (selectedCount == 0) {
+    return false;
+  }
+  if (selectedCount == values.length) {
+    return true;
+  }
+  return null;
+}
+
 Future<void> showScanSeriesDialog(BuildContext context) {
   final path = context.read<ConversionProvider>().selectedPath;
   if (path.isEmpty) {
@@ -64,8 +80,11 @@ class _ScanSeriesDialogState extends State<_ScanSeriesDialog> {
 
       if (!mounted) return;
 
-      final existingPatterns =
-          context.read<RulesProvider>().rules.map((r) => r.pattern).toSet();
+      final existingPatterns = context
+          .read<RulesProvider>()
+          .rules
+          .map((r) => r.pattern)
+          .toSet();
 
       setState(() {
         _isLoading = false;
@@ -87,8 +106,7 @@ class _ScanSeriesDialogState extends State<_ScanSeriesDialog> {
               entry.selected = false;
             }
             return entry;
-          }).toList()
-            ..sort((a, b) => a.description.compareTo(b.description));
+          }).toList()..sort((a, b) => a.description.compareTo(b.description));
         }
       });
     } catch (e) {
@@ -118,9 +136,23 @@ class _ScanSeriesDialogState extends State<_ScanSeriesDialog> {
     Navigator.of(context).pop();
   }
 
+  void _setAllSelected(bool selected) {
+    final entries = _entries;
+    if (entries == null) return;
+
+    setState(() {
+      for (final entry in entries) {
+        entry.selected = selected;
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final allSelectionState = bulkSelectionState(
+      _entries?.map((entry) => entry.selected) ?? const <bool>[],
+    );
 
     return AlertDialog(
       title: const Text('Discovered Series'),
@@ -133,14 +165,12 @@ class _ScanSeriesDialogState extends State<_ScanSeriesDialog> {
             Text(
               _statusText,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 12),
             if (_isLoading)
-              const Expanded(
-                child: Center(child: CircularProgressIndicator()),
-              )
+              const Expanded(child: Center(child: CircularProgressIndicator()))
             else if (_entries != null && _entries!.isNotEmpty)
               Expanded(
                 child: SingleChildScrollView(
@@ -149,8 +179,25 @@ class _ScanSeriesDialogState extends State<_ScanSeriesDialog> {
                     dataRowMinHeight: 36,
                     dataRowMaxHeight: 36,
                     columnSpacing: 16,
-                    columns: const [
-                      DataColumn(label: SizedBox(width: 30)),
+                    columns: [
+                      DataColumn(
+                        label: SizedBox(
+                          width: 40,
+                          child: Center(
+                            child: Tooltip(
+                              message: allSelectionState == true
+                                  ? 'Unselect all series'
+                                  : 'Select all series',
+                              child: Checkbox(
+                                value: allSelectionState,
+                                tristate: true,
+                                onChanged: (_) =>
+                                    _setAllSelected(allSelectionState != true),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                       DataColumn(label: Text('Series Description')),
                       DataColumn(label: Text('Files'), numeric: true),
                       DataColumn(label: Text('Modality')),
@@ -162,15 +209,16 @@ class _ScanSeriesDialogState extends State<_ScanSeriesDialog> {
                             Checkbox(
                               value: entry.selected,
                               onChanged: (v) {
-                                setState(
-                                    () => entry.selected = v ?? true);
+                                setState(() => entry.selected = v ?? true);
                               },
                             ),
                           ),
-                          DataCell(Text(
-                            entry.description,
-                            overflow: TextOverflow.ellipsis,
-                          )),
+                          DataCell(
+                            Text(
+                              entry.description,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                           DataCell(Text('${entry.count}')),
                           DataCell(
                             DropdownButton<String>(
@@ -178,8 +226,12 @@ class _ScanSeriesDialogState extends State<_ScanSeriesDialog> {
                               isDense: true,
                               underline: const SizedBox(),
                               items: modalityChoices
-                                  .map((m) => DropdownMenuItem(
-                                      value: m, child: Text(m)))
+                                  .map(
+                                    (m) => DropdownMenuItem(
+                                      value: m,
+                                      child: Text(m),
+                                    ),
+                                  )
                                   .toList(),
                               onChanged: (v) {
                                 if (v != null) {
@@ -195,9 +247,7 @@ class _ScanSeriesDialogState extends State<_ScanSeriesDialog> {
                 ),
               )
             else
-              const Expanded(
-                child: Center(child: Text('No series found.')),
-              ),
+              const Expanded(child: Center(child: Text('No series found.'))),
           ],
         ),
       ),
@@ -207,8 +257,9 @@ class _ScanSeriesDialogState extends State<_ScanSeriesDialog> {
           child: const Text('Cancel'),
         ),
         FilledButton(
-          onPressed:
-              _isLoading || (_entries?.isEmpty ?? true) ? null : _addSelected,
+          onPressed: _isLoading || (_entries?.isEmpty ?? true)
+              ? null
+              : _addSelected,
           child: const Text('Add Selected as Rules'),
         ),
       ],

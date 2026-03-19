@@ -26,6 +26,6 @@ void main() {
     );
 
     expect(find.text('z2apd_datasorter'), findsOneWidget);
-    expect(find.text('Version v1.1.2+1'), findsOneWidget);
+    expect(find.text('Version v1.1.3+2'), findsOneWidget);
   });
 }
