@@ -5,11 +5,17 @@
 Flutter desktop app for converting DICOM folders to BIDS-style NIfTI outputs using `dcm2niix`, with optional post-conversion ZIP archiving.
 
 ## Version
-- Current app version: `1.1.3+2`
+- Current app version: `1.1.4+1`
 - Version constants used by the UI live in `lib/app_info.dart`
 - Pub version metadata lives in `pubspec.yaml`
 
 ## Changelog
+
+### v1.1.4
+- Refactored codebase: extracted `DicomSeriesMeta` model, `modality_rule_matcher`, and `bids_filename_builder` services
+- Removed duplicated `convertToStaging` method; unified into single `convert` + `extractMetadata` in `Dcm2niixService`
+- Deduplicated `BinaryLocator` platform path resolution via `_resolveBinary` helper
+- Added `AGENTS.md` project documentation
 
 ### v1.1.3
 - PET subject IDs are derived from the PET scan folder path instead of DICOM `PatientID`

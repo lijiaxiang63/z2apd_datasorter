@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart' as p;
+import '../models/dicom_series_meta.dart';
 
 /// Wraps dcm2niix binary execution.
 class Dcm2niixService {
@@ -15,11 +16,7 @@ class Dcm2niixService {
 
     try {
       final result = await Process.run(binaryPath, [
-        '-q',
-        'y',
-        '-d',
-        '1',
-        folderPath,
+        '-q', 'y', '-d', '1', folderPath,
       ]);
       final output = result.stdout.toString() + result.stderr.toString();
       return output.contains(RegExp(r'Found\s+\d+\s+DICOM file'));
@@ -75,82 +72,63 @@ class Dcm2niixService {
     return folders;
   }
 
-  /// Convert a single DICOM folder to NIfTI (no-rules path).
+  /// Convert a single DICOM folder to NIfTI.
   Future<ProcessResult> convert({
     required String inputDir,
     required String outputDir,
     required String filenameFormat,
   }) async {
     return await Process.run(binaryPath, [
-      '-ba',
-      'n',
-      '-z',
-      'y',
-      '-f',
-      filenameFormat,
-      '-o',
-      outputDir,
-      inputDir,
+      '-ba', 'n', '-z', 'y', '-f', filenameFormat, '-o', outputDir, inputDir,
     ]);
   }
 
-  /// Convert to a staging directory (rules path).
-  Future<ProcessResult> convertToStaging({
-    required String inputDir,
-    required String stagingDir,
-    required String filenameFormat,
-  }) async {
-    return await Process.run(binaryPath, [
-      '-ba',
-      'n',
-      '-z',
-      'y',
-      '-f',
-      filenameFormat,
-      '-o',
-      stagingDir,
-      inputDir,
-    ]);
-  }
-
-  /// Scan a DICOM folder tree and extract series metadata.
-  /// Returns a map of SeriesDescription -> file count.
-  Future<Map<String, int>> scanSeries(String folderPath) async {
-    final tempDir = await Directory.systemTemp.createTemp('dcm2niix_scan_');
+  /// Extract metadata from a DICOM folder by running a JSON-only conversion
+  /// into a temp directory. Returns parsed metadata objects sorted by path.
+  Future<List<DicomSeriesMeta>> extractMetadata(String inputDir) async {
+    final tempDir = await Directory.systemTemp.createTemp('dcm_meta_');
     try {
       await Process.run(binaryPath, [
-        '-b',
-        'o',
-        '-ba',
-        'n',
-        '-z',
-        'n',
-        '-f',
-        '%s_%d',
-        '-o',
-        tempDir.path,
-        folderPath,
+        '-b', 'o', '-ba', 'n', '-z', 'n', '-f', '%s_%d',
+        '-o', tempDir.path, inputDir,
       ]);
 
-      final seriesCounts = <String, int>{};
-      for (final f in tempDir.listSync()) {
-        if (f is! File || !f.path.endsWith('.json')) continue;
+      final jsonFiles = tempDir
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.json'))
+          .toList()
+        ..sort((a, b) => a.path.compareTo(b.path));
+
+      final metas = <DicomSeriesMeta>[];
+      for (final jsonFile in jsonFiles) {
         try {
-          final data =
-              jsonDecode(await f.readAsString()) as Map<String, dynamic>;
-          final studyDescription = data['StudyDescription'] as String? ?? '';
-          final desc = data['SeriesDescription'] as String? ?? studyDescription;
-          if (desc.isNotEmpty) {
-            seriesCounts[desc] = (seriesCounts[desc] ?? 0) + 1;
+          final raw = jsonDecode(await jsonFile.readAsString());
+          if (raw is Map<String, dynamic>) {
+            metas.add(DicomSeriesMeta(raw));
           }
         } catch (_) {
           continue;
         }
       }
-      return seriesCounts;
+      return metas;
     } finally {
       await tempDir.delete(recursive: true);
     }
+  }
+
+  /// Scan a DICOM folder and extract series metadata.
+  /// Returns a map of SeriesDescription -> file count.
+  Future<Map<String, int>> scanSeries(String folderPath) async {
+    final metas = await extractMetadata(folderPath);
+    final seriesCounts = <String, int>{};
+    for (final meta in metas) {
+      final desc = meta.seriesDescription;
+      if (desc.isNotEmpty) {
+        seriesCounts[desc] = (seriesCounts[desc] ?? 0) + 1;
+      }
+    }
+    return seriesCounts;
   }
 
   /// Scan all DICOM folders under root and aggregate series.
